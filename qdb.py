@@ -124,10 +124,34 @@ class Database(object):
         cur.close()
         return (dict(zip((a[0] for a in self.SCHEMA), q)) for q in data)
 
+    def unapproved(self):
+        cur = self.connection.cursor()
+        cur.execute("""SELECT {}
+                        FROM quote
+                        WHERE approver IS NULL""".format(
+                            ', '.join(a[0] for a in self.SCHEMA)))
+        data = cur.fetchall()
+        cur.close()
+        return (dict(zip((a[0] for a in self.SCHEMA), q)) for q in data)
+
     def rate(self, quoteid, increment):
         cur = self.connection.cursor()
         cur.execute("""UPDATE quote SET rating = rating + %s WHERE id = %s""",
                     (increment, quoteid)
+                    )
+        cur.close()
+
+    def delete(self, quoteid):
+        cur = self.connection.cursor()
+        cur.execute("""DELETE FROM quote WHERE id = %s""",
+                    (quoteid,)
+                    )
+        cur.close()
+
+    def approve(self, quoteid, approver):
+        cur = self.connection.cursor()
+        cur.execute("""UPDATE quote SET approver = %s, time_approved = NOW()  WHERE id = %s""",
+                    (approver, quoteid)
                     )
         cur.close()
 
