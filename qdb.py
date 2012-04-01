@@ -45,7 +45,8 @@ body {{{{ width: 80%; margin: auto; font-family: monospace; }}}}
 
 INDEX_TEMPLATE=BASE_TEMPLATE.format(title=u"Index",
                                     content=\
-u"""<div class="index">{quotes}</div>"""
+u"""{pagenav}
+<div class="index">{quotes}</div>"""
                                     )
 
 SUBMIT_TEMPLATE=BASE_TEMPLATE.format(title=u"Submit",
@@ -69,6 +70,9 @@ QUOTE=u"""<div class="quote" id="q{id}">
     </div>
     <div class="qbody">{content}</div>
 </div>"""
+
+PAGENAVIGATION_TEMPLATE=u"""<div class="pagenav">Pages: {pages}</div>"""
+PAGELINK=u"""<a href="?page={pageno}">{pageno}</a>"""
 
 class Database(object):
     PERPAGE=50
@@ -117,6 +121,9 @@ class Database(object):
 
     def all(self, page=0, order='id DESC'):
         cur = self.connection.cursor()
+        cur.execute("""SELECT COUNT(*) FROM quote
+                        WHERE approver IS NOT NULL""")
+        count = cur.fetchone()[0]
         cur.execute("""SELECT {}
                         FROM quote
                         WHERE approver IS NOT NULL
@@ -128,7 +135,7 @@ class Database(object):
                             page * self.PERPAGE))
         data = cur.fetchall()
         cur.close()
-        return (dict(zip((a[0] for a in self.SCHEMA), q)) for q in data)
+        return (dict(zip((a[0] for a in self.SCHEMA), q)) for q in data), (count/self.PERPAGE + 1)
 
     def unapproved(self):
         cur = self.connection.cursor()
@@ -178,6 +185,9 @@ class Site(object):
     @cherrypy.expose
     def index(self, *args, **kwargs):
         quotes = None
+        pages = 1
+        wantpage = int(kwargs.pop('page', 1)) - 1
+        wantpage = max(wantpage, 0)
 
         if args:
             try:
@@ -190,12 +200,18 @@ class Site(object):
         if order not in self.PERMITTED_ORDERS:
             order = "id DESC"
         if quotes is None:
-            quotes = self.db.all(order=order)
+            quotes, pages = self.db.all(page=wantpage, order=order)
+
+        navigation = ''
+        if pages > 1:
+            navigation = PAGENAVIGATION_TEMPLATE.format(pages=''.join(PAGELINK.format(pageno=i+1)
+                                                                      for i in xrange(pages)))
 
         quotes = ''.join(QUOTE.format(**self.autoescape(q)) for q in quotes)\
                  if quotes else None
         quotes = quotes or NO_QUOTES
-        return INDEX_TEMPLATE.format(quotes=quotes)
+        return INDEX_TEMPLATE.format(quotes=quotes,
+                                     pagenav=navigation)
 
     @cherrypy.expose
     def default(self, quoteid):
@@ -207,12 +223,12 @@ class Site(object):
         return self.index(quoteid)
 
     @cherrypy.expose
-    def best(self):
-        return self.index(order='rating DESC')
+    def best(self, **kwargs):
+        return self.index(order='rating DESC', **kwargs)
 
     @cherrypy.expose
-    def random(self):
-        return self.index(order='RANDOM()')
+    def random(self, **kwargs):
+        return self.index(order='RANDOM()', **kwargs)
 
     @cherrypy.expose
     def submit(self, **kwargs):
