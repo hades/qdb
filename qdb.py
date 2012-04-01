@@ -7,6 +7,7 @@
 # the accompanying COPYING file for more details.
 #
 
+import cgi
 import cherrypy
 import datetime
 import psycopg2
@@ -160,6 +161,15 @@ class Site(object):
     def __init__(self, *args, **kwargs):
         self.db = Database(*args, **kwargs)
 
+    def autoescape(self, dic):
+        res = {}
+        for k in dic:
+            if isinstance(dic[k], (str, unicode)):
+                res[k] = cgi.escape(dic[k])
+            else:
+                res[k] = dic[k]
+        return res
+
     @cherrypy.expose
     def index(self, *args, **kwargs):
         quotes = None
@@ -177,7 +187,8 @@ class Site(object):
         if quotes is None:
             quotes = self.db.all(order=order)
 
-        quotes = ''.join(QUOTE.format(**q) for q in quotes) if quotes else None
+        quotes = ''.join(QUOTE.format(**self.autoescape(q)) for q in quotes)\
+                 if quotes else None
         quotes = quotes or NO_QUOTES
         return INDEX_TEMPLATE.format(quotes=quotes)
 
