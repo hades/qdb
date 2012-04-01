@@ -12,11 +12,16 @@ import cherrypy
 import datetime
 import psycopg2
 
+import psycopg2.extensions
+psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
+psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
+
 PG_CONNECTION=""
 
 BASE_TEMPLATE=u"""<!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8" />
 <title>QDB: {title}</title>
 <style>
 body {{{{ width: 80%; margin: auto; font-family: monospace; }}}}
@@ -46,10 +51,10 @@ u"""<div class="index">{quotes}</div>"""
 SUBMIT_TEMPLATE=BASE_TEMPLATE.format(title=u"Submit",
                                      content=\
 u"""<div class="submit"><div class="message">{message}</div>
-<form action="/submit" method="POST"><div class="form">
+<form action="/submit" method="POST" accept-charset="UTF-8"><div class="form">
 <p><textarea name="text" required="required" placeholder="Enter quote here" rows="10" cols="80"></textarea></p>
 <p><input type="submit" /></p>
-</form></div>"""
+</div></form></div>"""
                                     )
 
 NO_QUOTES=u"""<div class="noquotes">There are no quotes here</div>"""
